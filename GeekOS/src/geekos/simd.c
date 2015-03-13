@@ -72,8 +72,8 @@ void IO_Complete_Callback(int id) {
     if(tail == e) {
         tail = e->prev;
     }
-    Remove_Thread(&s_waitQueue_simd, kt);
-    Enqueue_Thread(&s_runQueue, kt);
+    Remove_Thread(&s_waitQueue_simd, e->kt);
+    Make_Runnable(e->kt);
     Free(e);
 }
 
