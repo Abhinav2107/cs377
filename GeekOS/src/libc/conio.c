@@ -26,6 +26,9 @@ DEF_SYSCALL(Get_Cursor, SYS_GETCURSOR, int, (int *row, int *col),
             int *arg0 = row;
             int *arg1 = col;
             , SYSCALL_REGS_2)
+DEF_SYSCALL(SimD_Read,SYS_SIMD_READ,int,(int blockNo,ulong_t * buf),int arg0 = blockNo;
+ulong_t * arg1 = buf; ,
+ SYSCALL_REGS_2)
 
 
 int Put_Cursor(int row, int col) {

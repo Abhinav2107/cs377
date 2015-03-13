@@ -31,6 +31,7 @@ int Get_Key(void);
 int Set_Attr(int attr);
 int Get_Cursor(int *row, int *col);
 int Put_Cursor(int row, int col);
+int SimD_Read(int blockNo,ulong_t * buf);
 #endif
 
 void Echo(bool enable);

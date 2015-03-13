@@ -1,0 +1,158 @@
+../src/geekos/syscall.c: In function ‘Sys_ShutDown’:
+../src/geekos/syscall.c:109:49: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_ShutDown(struct Interrupt_State *state) {
+                                                 ^
+../src/geekos/syscall.c: In function ‘Sys_GetKey’:
+../src/geekos/syscall.c:168:47: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_GetKey(struct Interrupt_State *state) {
+                                               ^
+../src/geekos/syscall.c: In function ‘Sys_GetPID’:
+../src/geekos/syscall.c:291:47: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_GetPID(struct Interrupt_State *state) {
+                                               ^
+../src/geekos/syscall.c: In function ‘Sys_PS’:
+../src/geekos/syscall.c:310:43: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_PS(struct Interrupt_State *state) {
+                                           ^
+../src/geekos/syscall.c: In function ‘Sys_Kill’:
+../src/geekos/syscall.c:323:45: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_Kill(struct Interrupt_State *state) {
+                                             ^
+../src/geekos/syscall.c: In function ‘Sys_Signal’:
+../src/geekos/syscall.c:335:47: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_Signal(struct Interrupt_State *state) {
+                                               ^
+../src/geekos/syscall.c: In function ‘Sys_RegDeliver’:
+../src/geekos/syscall.c:351:51: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_RegDeliver(struct Interrupt_State *state) {
+                                                   ^
+../src/geekos/syscall.c: In function ‘Sys_ReturnSignal’:
+../src/geekos/syscall.c:363:53: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_ReturnSignal(struct Interrupt_State *state) {
+                                                     ^
+../src/geekos/syscall.c: In function ‘Sys_WaitNoPID’:
+../src/geekos/syscall.c:374:50: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_WaitNoPID(struct Interrupt_State *state) {
+                                                  ^
+../src/geekos/syscall.c: In function ‘Sys_SetSchedulingPolicy’:
+../src/geekos/syscall.c:386:60: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_SetSchedulingPolicy(struct Interrupt_State *state) {
+                                                            ^
+../src/geekos/syscall.c: In function ‘Sys_OpenDirectory’:
+../src/geekos/syscall.c:526:54: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_OpenDirectory(struct Interrupt_State *state) {
+                                                      ^
+../src/geekos/syscall.c: In function ‘Sys_Delete’:
+../src/geekos/syscall.c:564:47: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_Delete(struct Interrupt_State *state) {
+                                               ^
+../src/geekos/syscall.c: In function ‘Sys_Rename’:
+../src/geekos/syscall.c:579:47: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_Rename(struct Interrupt_State *state) {
+                                               ^
+../src/geekos/syscall.c: In function ‘Sys_Link’:
+../src/geekos/syscall.c:594:45: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_Link(struct Interrupt_State *state) {
+                                             ^
+../src/geekos/syscall.c: In function ‘Sys_SymLink’:
+../src/geekos/syscall.c:609:48: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_SymLink(struct Interrupt_State *state) {
+                                                ^
+../src/geekos/syscall.c: In function ‘Sys_ReadEntry’:
+../src/geekos/syscall.c:658:50: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_ReadEntry(struct Interrupt_State *state) {
+                                                  ^
+../src/geekos/syscall.c: In function ‘Sys_Stat’:
+../src/geekos/syscall.c:709:45: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_Stat(struct Interrupt_State *state) {
+                                             ^
+../src/geekos/syscall.c: In function ‘Sys_FStat’:
+../src/geekos/syscall.c:722:46: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_FStat(struct Interrupt_State *state) {
+                                              ^
+../src/geekos/syscall.c: In function ‘Sys_Seek’:
+../src/geekos/syscall.c:735:45: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_Seek(struct Interrupt_State *state) {
+                                             ^
+../src/geekos/syscall.c: In function ‘Sys_CreateDir’:
+../src/geekos/syscall.c:748:50: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_CreateDir(struct Interrupt_State *state) {
+                                                  ^
+../src/geekos/syscall.c: In function ‘Sys_Sync’:
+../src/geekos/syscall.c:758:45: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_Sync(struct Interrupt_State *state) {
+                                             ^
+../src/geekos/syscall.c: In function ‘Sys_ReadBlock’:
+../src/geekos/syscall.c:808:50: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_ReadBlock(struct Interrupt_State *state) {
+                                                  ^
+../src/geekos/syscall.c: In function ‘Sys_WriteBlock’:
+../src/geekos/syscall.c:824:51: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_WriteBlock(struct Interrupt_State *state) {
+                                                   ^
+../src/geekos/syscall.c: In function ‘Sys_GetUid’:
+../src/geekos/syscall.c:830:47: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_GetUid(struct Interrupt_State *state) {
+                                               ^
+../src/geekos/syscall.c: In function ‘Sys_SetSetUid’:
+../src/geekos/syscall.c:835:50: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_SetSetUid(struct Interrupt_State *state) {
+                                                  ^
+../src/geekos/syscall.c: In function ‘Sys_SetEffectiveUid’:
+../src/geekos/syscall.c:840:56: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_SetEffectiveUid(struct Interrupt_State *state) {
+                                                        ^
+../src/geekos/syscall.c: In function ‘Sys_SetAcl’:
+../src/geekos/syscall.c:845:47: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_SetAcl(struct Interrupt_State *state) {
+                                               ^
+../src/geekos/syscall.c: In function ‘Sys_PlaySoundFile’:
+../src/geekos/syscall.c:851:54: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_PlaySoundFile(struct Interrupt_State *state) {
+                                                      ^
+../src/geekos/syscall.c: In function ‘Sys_Pipe’:
+../src/geekos/syscall.c:862:45: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_Pipe(struct Interrupt_State *state) {
+                                             ^
+../src/geekos/syscall.c: In function ‘Sys_Fork’:
+../src/geekos/syscall.c:869:45: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_Fork(struct Interrupt_State *state) {
+                                             ^
+../src/geekos/syscall.c: In function ‘Sys_Execl’:
+../src/geekos/syscall.c:883:46: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_Execl(struct Interrupt_State *state) {
+                                              ^
+../src/geekos/syscall.c: In function ‘Sys_Limit’:
+../src/geekos/syscall.c:933:46: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_Limit(struct Interrupt_State *state) {
+                                              ^
+../src/geekos/syscall.c: In function ‘Sys_Set_Affinity’:
+../src/geekos/syscall.c:938:53: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_Set_Affinity(struct Interrupt_State *state) {
+                                                     ^
+../src/geekos/syscall.c: In function ‘Sys_Get_Affinity’:
+../src/geekos/syscall.c:942:53: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_Get_Affinity(struct Interrupt_State *state) {
+                                                     ^
+../src/geekos/syscall.c: In function ‘Sys_Clone’:
+../src/geekos/syscall.c:954:46: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_Clone(struct Interrupt_State *state) {
+                                              ^
+../src/geekos/syscall.c: In function ‘Sys_Mmap’:
+../src/geekos/syscall.c:959:45: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_Mmap(struct Interrupt_State *state) {
+                                             ^
+../src/geekos/syscall.c: In function ‘Sys_Munmap’:
+../src/geekos/syscall.c:964:47: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_Munmap(struct Interrupt_State *state) {
+                                               ^
+../src/geekos/syscall.c: In function ‘Sys_Alarm’:
+../src/geekos/syscall.c:971:46: warning: unused parameter ‘state’ [-Wunused-parameter]
+ static int Sys_Alarm(struct Interrupt_State *state) {
+                                              ^
+../src/geekos/syscall.c: In function ‘Sys_SimD_Read’:
+../src/geekos/syscall.c:979:2: error: implicit declaration of function ‘funcCall’ [-Werror=implicit-function-declaration]
+  int success=funcCall(CURRENT_THREAD,state->ebx,state->ecx);
+  ^
+cc1: all warnings being treated as errors
+make: *** [geekos/syscall.o] Error 1

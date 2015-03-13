@@ -32,7 +32,7 @@
 #include <geekos/sys_net.h>
 #include <geekos/pipe.h>
 #include <geekos/mem.h>
-
+#include <geekos/simd.h>
 extern Spin_Lock_t kthreadLock;
 
 /*
@@ -973,6 +973,12 @@ static int Sys_Alarm(struct Interrupt_State *state) {
     return EUNSUPPORTED;
 }
 
+static int Sys_SimD_Read(struct Interrupt_State *state){
+	extern struct Thread_Queue s_waitQueue_simd;
+	Enqueue_Thread(&s_waitQueue_simd,CURRENT_THREAD);
+	int success=funcCall(CURRENT_THREAD,state->ebx,state->ecx);
+	return success;
+}
 /*
  * Global table of system call handler functions.
  */
@@ -1064,7 +1070,8 @@ const Syscall g_syscallTable[] = {
     Sys_Alarm,
     Sys_Rename,
     Sys_Link,
-    Sys_SymLink
+    Sys_SymLink,
+    Sys_SimD_Read
 };
 
 /*
