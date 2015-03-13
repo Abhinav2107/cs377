@@ -16,11 +16,7 @@
 
 static int s_queueHead_simd, s_queueTail_simd;
 
-/*
- * Wait queue for thread(s) waiting for keyboard events.
- */
 static struct Thread_Queue s_waitQueue_simd;
-
 
 ulong_t lastpos;
 ulong_t finish;
