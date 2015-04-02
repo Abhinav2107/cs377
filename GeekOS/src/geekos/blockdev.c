@@ -104,8 +104,16 @@ int Register_Block_Device(const char *name, struct Block_Device_Ops *ops,
     dev->driverData = driverData;
     dev->waitQueue = waitQueue;
     dev->requestQueue = requestQueue;
+    int i;
+    for(i = 0; i < NUM_CACHE_BLOCKS; i++) {
+        dev->referenced[i] = 0;
+        dev->cache_block[i] = -1;
+        dev->dirty[i] = 0;
+    }
+    dev->replace_hand = NUM_CACHE_BLOCKS - 1;
+    dev->clear_hand = 9;
     dev->reads = dev->writes = 0;
-
+    dev->hits = dev->misses = 0;
     Mutex_Lock(&s_blockdevLock);
     /* FIXME: handle name conflict with existing device */
     Debug("Registering block device %s\n", dev->name);
@@ -155,7 +163,6 @@ int Open_Block_Device(const char *name, struct Block_Device **pDev) {
  */
 int Close_Block_Device(struct Block_Device *dev) {
     int rc;
-
     Mutex_Lock(&s_blockdevLock);
 
     KASSERT(dev->inUse);
@@ -251,15 +258,64 @@ void Notify_Request_Completion(struct Block_Request *request,
     Enable_Interrupts();
 }
 
+int Get_Cache_Index(struct Block_Device *dev, int blockNum) {
+    int i;
+    for(i = 0; i < NUM_CACHE_BLOCKS; i++) {
+        if(blockNum == dev->cache_block[i]) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int Allocate_Cache_Index(struct Block_Device *dev) {
+    int ret;
+    while(1) {
+        dev->replace_hand = (dev->replace_hand + 1) % NUM_CACHE_BLOCKS;
+        ret = dev->replace_hand;
+        if(dev->referenced[ret] == 0) {
+            if(dev->dirty[ret]) {
+                Do_Request(dev, BLOCK_WRITE, dev->cache_block[ret], dev->cache[ret]);
+            }
+            dev->dirty[ret] = 0;
+            dev->referenced[dev->clear_hand] = 0;
+            dev->clear_hand = (dev->clear_hand + 1) % NUM_CACHE_BLOCKS;
+            dev->referenced[ret] = 1;
+            return ret;
+        }
+        dev->referenced[dev->clear_hand] = 0;
+        dev->clear_hand = (dev->clear_hand + 1) % NUM_CACHE_BLOCKS;
+    }
+}
+
 /*
  * Read a block from given device.
  * Return 0 if successful, error code on error.
  */
 int Block_Read(struct Block_Device *dev, int blockNum, void *buf) {
+// 	Dump_Blockdev_Stats();
     KASSERT(dev);
     KASSERT(buf);
     dev->reads++;
-    return Do_Request(dev, BLOCK_READ, blockNum, buf);
+    int index;
+    int ret;
+	Mutex_Lock(&dev->cache_lock);
+    index = Get_Cache_Index(dev, blockNum);
+    if(index < 0) {
+        dev->misses++;
+        index = Allocate_Cache_Index(dev);
+        dev->cache_block[index] = blockNum;
+        ret = Do_Request(dev, BLOCK_READ, blockNum, dev->cache[index]);
+    }
+    else {
+        dev->hits++;
+        dev->referenced[index] = 1;
+        ret = 0;
+    }
+    memcpy(buf, dev->cache[index], SECTOR_SIZE);
+	Mutex_Unlock(&dev->cache_lock);
+
+	return ret;
 }
 
 /*
@@ -267,10 +323,39 @@ int Block_Read(struct Block_Device *dev, int blockNum, void *buf) {
  * Return 0 if successful, error code on error.
  */
 int Block_Write(struct Block_Device *dev, int blockNum, void *buf) {
+//	Dump_Blockdev_Stats();
     KASSERT(dev);
     KASSERT(buf);
     dev->writes++;
-    return Do_Request(dev, BLOCK_WRITE, blockNum, buf);
+    int index;
+	Mutex_Lock(&dev->cache_lock);
+    index = Get_Cache_Index(dev, blockNum);
+    if(index < 0) {
+        dev->misses++;
+		Mutex_Unlock(&dev->cache_lock);
+        return Do_Request(dev, BLOCK_WRITE, blockNum, buf);
+    }
+    else {
+        dev->hits++;
+        memcpy(dev->cache[index], buf, SECTOR_SIZE);
+        dev->referenced[index] = 1;
+        dev->dirty[index] = 1;
+		Mutex_Unlock(&dev->cache_lock);
+ 	return 0;
+    }
+}
+
+void Write_Cache_Back(struct Block_Device *dev) {
+	int i;
+	Mutex_Lock(&dev->cache_lock);
+	for(i = 0; i < NUM_CACHE_BLOCKS; i++) {
+		if(dev->dirty[i] && dev->cache_block[i] >= 0) {
+			Do_Request(dev, BLOCK_WRITE, dev->cache_block[i], dev->cache[i]);
+			dev->dirty[i] = 0;
+		}
+	}
+	Mutex_Unlock(&dev->cache_lock);
+
 }
 
 /*
@@ -292,6 +377,7 @@ void Dump_Blockdev_Stats(void) {
          dev != 0 && i > 0;
          dev = Get_Next_In_Block_Device_List(dev), i -= 1) {
         Print(" %s: read %u wrote %u\n", dev->name, dev->reads, dev->writes);
+        Print(" %s: hits %u misses %u\n", dev->name, dev->hits, dev->misses);
     }
     Mutex_Unlock(&s_blockdevLock);
 }

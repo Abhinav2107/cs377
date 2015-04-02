@@ -22,8 +22,10 @@
 #include <geekos/kthread.h>
 #include <geekos/list.h>
 #include <geekos/fileio.h>
-
+#include <geekos/synch.h>
 #ifdef GEEKOS
+
+#define NUM_CACHE_BLOCKS 100
 
 /*
  * Type of block device request.
@@ -77,9 +79,15 @@ struct Block_Device {
     void *driverData;
     struct Thread_Queue *waitQueue;
     struct Block_Request_List *requestQueue;
-
+    int referenced[NUM_CACHE_BLOCKS];
+    int dirty[NUM_CACHE_BLOCKS];
+    int replace_hand;
+    int clear_hand;
+    int cache_block[NUM_CACHE_BLOCKS];
+    char cache[NUM_CACHE_BLOCKS][SECTOR_SIZE];
+	struct Mutex cache_lock;
     unsigned int reads, writes; /* statistics */
-
+    unsigned int hits, misses;
      DEFINE_LINK(Block_Device_List, Block_Device);
 };
 
@@ -118,7 +126,7 @@ void Notify_Request_Completion(struct Block_Request *request,
 int Block_Read(struct Block_Device *dev, int blockNum, void *buf);
 int Block_Write(struct Block_Device *dev, int blockNum, void *buf);
 int Get_Num_Blocks(struct Block_Device *dev);
-
+void Write_Cache_Back(struct Block_Device *dev);
 /*
  * Misc. routines
  */
