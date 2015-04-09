@@ -77,6 +77,7 @@ struct Kernel_Thread {
 
     char threadName[20];
 
+
 };
 
 #ifdef GEEKOS

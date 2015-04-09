@@ -28,7 +28,6 @@
 #include <geekos/signal.h>
 #include <geekos/sem.h>
 #include <geekos/projects.h>
-
 #include <geekos/sys_net.h>
 #include <geekos/pipe.h>
 #include <geekos/mem.h>
@@ -972,11 +971,38 @@ static int Sys_Alarm(struct Interrupt_State *state) {
     TODO_P(PROJECT_SIGNALS, "Alarm");
     return EUNSUPPORTED;
 }
-
+/**********ourcode****/
 static int Sys_SimD_Read(struct Interrupt_State *state){
-	int success=Start_IO(CURRENT_THREAD,state->ebx,state->ecx);
-	return success;
+
+	/*int fd = state->ebx; // file descriptor
+	int record_num = state->ecx; // 
+	struct FCB* fcbPtr = findFCB(CURRENT_THREAD->oft,fd);
+	int cur_rec_size = fcbptr->recordSize; 
+	int new_file_pos = record_num*cur_rec_size;
+	myfs_Seek(fcbPtr, new_file_pos);
+	int success = myfs_Read(fcbPtr,state->edx,cur_rec_size);		//verify this
+	return success;*/
+	return 0;
 }
+
+static int Sys_SimD_Write(struct Interrupt_State *state)
+{
+	/*int fd = state->ebx;
+	int record_num = state->ecx;
+	FCB* fcbPtr = findFCB(CURRENT_THREAD->oft,fd);
+	int cur_rec_size = fcbptr->recordSize; 
+
+	int new_file_pos = record_num*cur_rec_size;
+	myfs_Seek(fcbPtr, new_file_pos);
+	
+	int success = myfs_Write(fcbPtr,state->edx,cur_rec_size);
+	return success;*/
+	return 0;
+
+}
+/****ourcode**********/
+
+
 /*
  * Global table of system call handler functions.
  */
@@ -1069,7 +1095,8 @@ const Syscall g_syscallTable[] = {
     Sys_Rename,
     Sys_Link,
     Sys_SymLink,
-    Sys_SimD_Read
+    Sys_SimD_Read,
+	Sys_SimD_Write
 };
 
 /*

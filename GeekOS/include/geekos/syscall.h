@@ -122,7 +122,8 @@ enum {
     SYS_RENAME,                 /* Rename a file system call  */
     SYS_LINK,                   /* hard link two files */
     SYS_SYMLINK,                /* Symbloic link two files */
-    SYS_SIMD_READ		/* Read from disk */
+    SYS_SIMD_READ,		/* Read from disk */
+	SYS_SIMD_WRITE
 };
 
 /*

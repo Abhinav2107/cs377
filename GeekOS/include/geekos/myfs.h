@@ -1,72 +1,53 @@
 #include "fileio.h"
-#include "block_dev.h"
+#include "blockdev.h"
 #include "vfs.h"
 
-int MAX_FILE_BLOCKS = 5000;		//In #blocks
+#define MAX_FILE_BLOCKS 5000		//In #blocks
+#define SIZE_OF_BLOCK 1024		//In #bytes
+#define NUM_OF_BLOCKS 5000
+#define NUM_OF_USERS  1
 
-int SIZE_OF_BLOCK = 1024;		//In #bytes
+#define MYFS_BOOT_RECORD_OFFSET 350
 
-int NUM_OF_BLOCKS = 5000;
+#define MYFS_MAGIC 210
+
+#define MAX_NAME_SIZE 16
+
+
+struct myfs_directoryEntry{
+	int type;
+    char fileName[MAX_NAME_SIZE];
+
+    /* attribute bits */
+    int next; // incase of overflow of directory
+    char files[24][MAX_NAME_SIZE];
+    int fileblock[24];
+    int perms; // permission
+    int faltu;
+};
+struct myfs_File;
 
 struct superBlock {
-    int magic; //Magic Number to identify the filesystem
-    int rootAddr;
-	int numOfBlocks;
-	int DSM[NUM_OF_BLOCKS];
+    int magic;
+    int root;
+    int dsm;
+    int n_blocks;
+    char padding[496];
 };
+char dsm_array[512];
 
 
-struct FCB {
-	int fd;
-	FCB* nextFCB;
-	FCB* prevFCB;
-	char fname[200];	//File name
-	char ftype[40];		//Type
-	int recordSize;
-	//int blockSize;
-	//name of access method
-	//Number of buffers
-	//Name of access method
-	
-	//directory_struct* parentDirectory;
-	FMT* fmt;
-	char permissions[NUM_OF_USERS][3];	//assuming 10 users, 3 flags for read, write execute
-	int fileSize;			//In bytes
-	short mod_time;					
-	short mod_date;
-	int pid;		//Process id
-};
-
-struct FMT {
-	int blockArray[MAX_FILE_BLOCKS]; // this is statically formed and designed to be the maximum number of blocks 
-	//that are there in a file
-	/// This needs to be multilevel file table
-	int current_size;
-};
 
 
-struct directory_struct {
-	FMT* fmt;
-	char permissions[NUM_OF_USERS][3];
+
+
+struct myfs_File {
+
+	char fileName[16];
 	int fileSize;
-	short create_date;
-	short create_time;
-	short mod_time;					
-	short mod_date;
+	int perms;
+	int fmt[122];
 };
 
-/*
-FCB* findFCB(OFT* _oft, int fd){
+void Init_myfs();
 
-	int i=0;
-	FCB* curFCB = _oft->head;
-	while(1){
-		if(curFCB == NULL) return NULL;
-		if(i==fd) return curFCB;
-		i++;
-		curFCB = curFCB->next;		
-	}
-}
-*/
-
-void Init_MyFS(void);

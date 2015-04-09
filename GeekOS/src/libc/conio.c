@@ -26,9 +26,13 @@ DEF_SYSCALL(Get_Cursor, SYS_GETCURSOR, int, (int *row, int *col),
             int *arg0 = row;
             int *arg1 = col;
             , SYSCALL_REGS_2)
-DEF_SYSCALL(SimD_Read,SYS_SIMD_READ,int,(int blockNo, char * buf),int arg0 = blockNo;
-ulong_t arg1 = (ulong_t)buf; ,
- SYSCALL_REGS_2)
+DEF_SYSCALL(SimD_Read,SYS_SIMD_READ,int,(int fd, int recordNo, char * buf),int arg0 = fd;int arg1 = recordNo;
+ulong_t arg2 = (ulong_t)buf; ,
+ SYSCALL_REGS_3)
+DEF_SYSCALL(SimD_Write,SYS_SIMD_WRITE,int,(int fd, int recordNo, char * buf),int arg0 = fd;int arg1 = recordNo;
+ulong_t arg2 = (ulong_t)buf; ,
+ SYSCALL_REGS_3)
+
 
 
 int Put_Cursor(int row, int col) {

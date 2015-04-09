@@ -66,7 +66,7 @@ KERNEL_C_SRCS := idt.c int.c trap.c irq.c io.c \
 	synch.c kthread.c \
 	user.c $(USER_IMP_C) argblock.c syscall.c dma.c floppy.c \
 	elf.c blockdev.c ide.c \
-	vfs.c pfat.c bitset.c bufcache.c \
+	vfs.c pfat.c myfs.c bitset.c bufcache.c \
 	$(notdir $(wildcard $(VPATH)/geekos/signal.c)) \
 	$(notdir $(wildcard $(VPATH)/geekos/paging.c)) \
 	$(notdir $(wildcard $(VPATH)/geekos/sem.c)) \
@@ -355,7 +355,7 @@ clean :
 		(cd $$d && rm -f *.bin *.exe *.o *.s *.a); \
 	done
 	rm -f libc/errno.c geekos/kernel.syms geekos/hdbootsect
-	rm -f *.img qemu out.txt
+	rm -f diskc.img qemu out.txt
 	rm -f tools/gfs2f pagefile.bin
 	./cleanSymLinks.py
 

@@ -1,17 +1,47 @@
+#include <limits.h>
+#include <geekos/errno.h>
+#include <geekos/screen.h>
+#include <geekos/string.h>
+#include <geekos/malloc.h>
+#include <geekos/ide.h>
+#include <geekos/blockdev.h>
+#include <geekos/bitset.h>
+#include <geekos/vfs.h>
+#include <geekos/list.h>
+#include <geekos/synch.h>
 #include <geekos/myfs.h>
+#include <geekos/projects.h>
+
+#define PAGEFILE_FILENAME "/pagefile.bin"
+
+int debugmyfs = 0;
+#define Debug(args...) if (debugmyfs) Print("myfs: " args)
+
+
+static struct myfs_directoryEntry *myfs_Lookup(struct Mount_Point *mountPoint,
+                                   struct superBlock *sblock,
+                                   const char *path) {
+    return 0;
+}
+
+
+
+static void myfs_Register_Paging_File(struct Mount_Point *mountPoint, struct superBlock *sblock){
+
+}
+
+
+
 
 static int myfs_Read(struct File * file, void * buf, ulong_t numBytes) {
-    //Read numBytes from file into buf at the position file->filePos
     return 0;
 }
 
 static int myfs_Write(struct File * file, void * buf, ulong_t numBytes) {
-    //Write numBytes from buf into file at the position file->filePos
     return 0;
 }
 
 static int myfs_Seek(struct File * file, ulong_t pos) {
-    //Set file->filePos to pos
     return 0;
 }
 
@@ -29,32 +59,45 @@ static struct File_Ops myfs_File_Ops = {
     0, //Read_Entry
 };
 
-static int myfs_Open(struct Mount_Point * mountPoint, const char * path, int mode, struct File ** pFile) {
-    //Open a file, Create an FCB (struct File) using AllocateFile in vfs.c and set *pFile to that pointer
-    //When calling AllocateFile use &myfs_File_Ops as the first argument
+static struct myfs_File* Get_myfs_File(struct superBlock * sblock, struct myfs_directoryEntry * entry){
+
     return 0;
+}
+
+static int myfs_Open(struct Mount_Point * mountPoint, const char * path, int mode, struct File ** pFile) {
+    return 0;
+
 }
 
 static int myfs_Create_Directory(struct Mount_Point * mountPoint, const char * path) {
-    //Create a directory at this path
     return 0;
 }
 
-static int myfs_Stat(struct Mount_Point mountPoint, const char * path, struct VFS_File_Stat * stat) {
-    //Return details about the file/directory specified by the path in the VFS_File_Stat structure
+
+static int Copy_Stat_For_myfs(struct VFS_File_Stat *stat, struct myfs_directoryEntry * entry){
+
+    return 0;
+
+}
+
+static int myfs_Stat(struct Mount_Point * mountPoint, const char * path, struct VFS_File_Stat * stat) {
     return 0;
 }
 
-static int myfs_Delete(struct Mount_Point mountPoint, const char * path, bool recursive) {
+static int myfs_Delete(struct Mount_Point * mountPoint, const char * path, bool recursive) {
     //Delete the file or directory (if recursive) at the path
     return 0;
 }
 
-static int myfs_Rename(struct Mount_Point mountPoint, const char * oldpath, const char * newpath) {
+static int myfs_Rename(struct Mount_Point * mountPoint, const char * oldpath, const char * newpath) {
     return 0;
+
+	
+
+
 }
 
-static struct Mount_Point_Ops myfs_Mount_Point_Ops = {
+struct Mount_Point_Ops myfs_Mount_Point_Ops = {
     &myfs_Open,
     &myfs_Create_Directory,
     0, //Open_Directory
@@ -70,15 +113,38 @@ static struct Mount_Point_Ops myfs_Mount_Point_Ops = {
 };
 
 static int myfs_Format(struct Block_Device * blockDev) {
-    //Format the block device to this filesystem
+    struct superBlock s;
+    s.magic=69;
+    s.dsm=1;
+    s.root=2;
+    s.n_blocks=2048;
+    memset(dsm_array,0,512);
+    dsm_array[0]=(char)224;
+    struct myfs_directoryEntry root;
+    memset(&root,0,512);
+    root.type=0;//
+    root.perms=7;
+    Block_Write(blockDev,0,(char*)&s);
+    Block_Write(blockDev,1,dsm_array);
+    Block_Write(blockDev,2,(char*)&root);
+    Write_Cache_Back(blockDev);
+    Print("Succesful Format\n");
     return 0;
 }
 
 static int myfs_Mount(struct Mount_Point * mountPoint) {
-    //Mount the filesystem at this mount point in the VFS
-    //Eg:- If the mount point is "d", then the root directory of this filesystem be /d/
-    //At some point you have to do mountPoint->ops = &myfs_Mount_Point_Ops;
+
+    struct superBlock s;
+    Block_Read(mountPoint->dev,0,(char*)&s);
+    if(s.magic!=69)
+    {
+        Print("Incorrect Magic Number\n");
+        return -1;
+    }
+    
+    mountPoint->ops = &myfs_Mount_Point_Ops;
     return 0;
+
 }
 
 static struct Filesystem_Ops myfs_Filesystem_Ops = {

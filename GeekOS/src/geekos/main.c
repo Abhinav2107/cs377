@@ -31,6 +31,7 @@
 #include <geekos/ide.h>
 #include <geekos/floppy.h>
 #include <geekos/pfat.h>
+#include <geekos/myfs.h>
 #include <geekos/vfs.h>
 #include <geekos/user.h>
 #include <geekos/paging.h>
@@ -51,7 +52,6 @@
 #include <geekos/smp.h>
 #include <geekos/io.h>
 
-
 /*
  * Define this for a self-contained boot floppy
  * with a PFAT filesystem.  (Target "fd_aug.img" in
@@ -69,9 +69,10 @@
 
 #define INIT_PROGRAM "/" ROOT_PREFIX "/shell.exe"
 
-
+#define MYFS_PREFIX "x"
 
 static void Mount_Root_Filesystem(void);
+static void Mount_Myfs_Filesystem(void);
 static void Spawn_Init_Process(void);
 
 /*
@@ -81,6 +82,7 @@ static void Spawn_Init_Process(void);
  */
 
 extern void checkPaging(void);
+
 
 
 void Hardware_Shutdown() {
@@ -121,6 +123,8 @@ void Main(struct Boot_Info *bootInfo) {
     /* Init_Floppy(); *//* floppy initialization hangs on virtualbox */
     Init_IDE();
     Init_PFAT();
+	Init_myfs();
+	//yuio=5;
     Init_GFS2();
     Init_GOSFS();
     Init_CFS();
@@ -142,7 +146,7 @@ void Main(struct Boot_Info *bootInfo) {
     /* End sound init */
 
     Mount_Root_Filesystem();
-
+	Mount_Myfs_Filesystem();
     TODO_P(PROJECT_VIRTUAL_MEMORY_A, "initialize page file.");
 
     Set_Current_Attr(ATTRIB(BLACK, GREEN | BRIGHT));
@@ -170,7 +174,12 @@ static void Mount_Root_Filesystem(void) {
 }
 
 
-
+static void Mount_Myfs_Filesystem(void) {
+    if (Mount("ide1", MYFS_PREFIX, "myfs") != 0)
+        Print("Failed to mount /" MYFS_PREFIX " filesystem\n");
+    else
+        Print("Mounted /" MYFS_PREFIX " filesystem!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+}
 
 
 

@@ -31,7 +31,8 @@ int Get_Key(void);
 int Set_Attr(int attr);
 int Get_Cursor(int *row, int *col);
 int Put_Cursor(int row, int col);
-int SimD_Read(int blockNo,char * buf);
+int SimD_Read(int fd,int recordNo,char * buf);
+int SimD_Write(int fd,int recordNo,char * buf);
 #endif
 
 void Echo(bool enable);
