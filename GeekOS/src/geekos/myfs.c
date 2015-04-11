@@ -17,6 +17,20 @@
 int debugmyfs = 0;
 #define Debug(args...) if (debugmyfs) Print("myfs: " args)
 
+struct superBlock sb;
+unsigned int dsm_array[128];
+int Allocate_Block() {
+	int i, j;
+	for(i = 0; i < 128; i++) {
+		for(j = 0; j < 32; j++) {
+			if(!(dsm_array[i] & (1<<(31-j)))) {
+					dsm_array[i] = (dsm_array[i] | (1<<(31-j)));
+					return (32 * i) + j;
+			}
+		}
+	}
+	return -1;
+}
 
 static struct myfs_directoryEntry *myfs_Lookup(struct Mount_Point *mountPoint,
                                    struct superBlock *sblock,
@@ -65,8 +79,105 @@ static struct myfs_File* Get_myfs_File(struct superBlock * sblock, struct myfs_d
 }
 
 static int myfs_Open(struct Mount_Point * mountPoint, const char * path, int mode, struct File ** pFile) {
-    return 0;
-
+	if(!strcmp(path, "/writecacheback")) {
+			Write_Cache_Back(mountPoint->dev);
+			return -1;
+	}
+	char buf[16];
+	char * name = buf;
+	char * last = &buf[15];
+	int lastblock = -1;
+	memset(name, 0, 16);
+	//Print("%s\n", path);
+	path++; //Skip first slash
+	struct myfs_directoryEntry dir;
+	lastblock = sb.root;
+	Block_Read(mountPoint->dev, lastblock, (char *)&dir);
+	while(*path) {
+		if(*path == '/') {
+				if(*buf == '\x00')
+					continue;
+				else {
+					int i;
+					*name = '\x00';
+					for(i = 0; i < 24; i++) {
+						if(*dir.files[i] == '\x00')
+								continue;
+						if(!strcmp(dir.files[i], buf)) {
+							lastblock = dir.fileblock[i];
+							Block_Read(mountPoint->dev, lastblock, &dir);
+							if(dir.type != 0)
+									return ENOTDIR;
+							name = buf;
+							memset(name, 0, 16);
+							break;
+						}
+					}
+					if(i == 24)
+							return ENOTFOUND;
+				}
+		}
+		else {
+			if(name == last)
+					return ENAMETOOLONG;
+			*name = *path;
+			name++;
+			path++;
+		}
+	}
+	if(*buf == '\x00')
+			return ENOTFOUND;
+	int i;
+	*name = '\x00';
+	struct myfs_File f;
+	memset(&f, 0, 512);
+	for(i = 0; i < 24; i++) {
+			if(*dir.files[i] == '\x00')
+					continue;
+			if(!strcmp(dir.files[i], buf)) {
+					Block_Read(mountPoint->dev, dir.fileblock[i], &f);
+					if(f.type != 1)
+							return ENOTFOUND;
+					break;
+			}
+	}
+	int blockno;
+	if(i == 24) {
+			if(!(mode & O_CREATE))
+				return ENOTFOUND;
+			else {
+				if(!(dir.perms & 2))
+					return EACCESS;
+				strcpy(f.fileName, buf);
+				f.type = 1;
+				f.perms = 7;
+				blockno = Allocate_Block();
+				if(blockno < 0)
+						return ENOSPACE;
+				Block_Write(mountPoint->dev, blockno, &f);
+				for(i = 0; i < 24; i++) {
+					if(*dir.files[i] == '\x00') {
+						strcpy(dir.files[i], f.fileName);
+						dir.fileblock[i] = blockno;
+						Block_Write(mountPoint->dev, lastblock, &dir);
+						break;
+					}
+				}
+				if(i == 24)
+						return EUNSPECIFIED;
+			}
+	}
+	else {
+		if(mode & O_CREATE)
+			return EEXIST;
+		blockno = dir.fileblock[i];
+	}
+	struct FCB_Data * fdata = Malloc(sizeof(struct FCB_Data));
+	fdata->blockno = blockno;
+	*pFile = Allocate_File(&myfs_File_Ops, 0, f.fileSize, fdata, mode, mountPoint);
+	if(!*pFile)
+			return EUNSPECIFIED;
+	return 0;
 }
 
 static int myfs_Create_Directory(struct Mount_Point * mountPoint, const char * path) {
@@ -75,7 +186,7 @@ static int myfs_Create_Directory(struct Mount_Point * mountPoint, const char * p
 
 
 static int Copy_Stat_For_myfs(struct VFS_File_Stat *stat, struct myfs_directoryEntry * entry){
-
+	
     return 0;
 
 }
@@ -113,20 +224,20 @@ struct Mount_Point_Ops myfs_Mount_Point_Ops = {
 };
 
 static int myfs_Format(struct Block_Device * blockDev) {
-    struct superBlock s;
-    s.magic=69;
-    s.dsm=1;
-    s.root=2;
-    s.n_blocks=2048;
+	memset(&sb, 0, 512);
+    sb.magic=69;
+    sb.dsm=1;
+    sb.root=2;
+    sb.n_blocks=2048;
     memset(dsm_array,0,512);
-    dsm_array[0]=(char)224;
+    dsm_array[0]=(1<<31)|(1<<30)|(1<<29);
     struct myfs_directoryEntry root;
     memset(&root,0,512);
-    root.type=0;//
+    root.type=0;//Directory
     root.perms=7;
-    Block_Write(blockDev,0,(char*)&s);
+    Block_Write(blockDev,0,&sb);
     Block_Write(blockDev,1,dsm_array);
-    Block_Write(blockDev,2,(char*)&root);
+    Block_Write(blockDev,2,&root);
     Write_Cache_Back(blockDev);
     Print("Succesful Format\n");
     return 0;
@@ -134,14 +245,13 @@ static int myfs_Format(struct Block_Device * blockDev) {
 
 static int myfs_Mount(struct Mount_Point * mountPoint) {
 
-    struct superBlock s;
-    Block_Read(mountPoint->dev,0,(char*)&s);
-    if(s.magic!=69)
+    Block_Read(mountPoint->dev,0,(char*)&sb);
+    if(sb.magic!=69)
     {
         Print("Incorrect Magic Number\n");
-        return -1;
+        return EINVALIDFS;
     }
-    
+    Block_Read(mountPoint->dev, sb.dsm,(char*)dsm_array);
     mountPoint->ops = &myfs_Mount_Point_Ops;
     return 0;
 

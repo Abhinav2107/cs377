@@ -4,7 +4,8 @@
 #include <string.h>
 int main()
 {
-	Format("ide1","myfs");
-	Mount("ide1","/x","myfs");
+	int fd = Open("/x/hello", O_READ);
+	Print("Fd: %d\n", fd);
+	Close(fd);	
 	return 0;
 }

@@ -34,7 +34,6 @@ struct superBlock {
     int n_blocks;
     char padding[496];
 };
-char dsm_array[512];
 
 
 
@@ -42,11 +41,15 @@ char dsm_array[512];
 
 
 struct myfs_File {
-
+	int type;
 	char fileName[16];
 	int fileSize;
 	int perms;
-	int fmt[122];
+	int fmt[121];
+};
+
+struct FCB_Data {
+	int blockno;
 };
 
 void Init_myfs();

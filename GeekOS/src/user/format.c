@@ -4,7 +4,6 @@
 #include <string.h>
 int main()
 {
-	Format("ide1","myfs");
-	Mount("ide1","/x","myfs");
+	Format("ide1", "myfs");
 	return 0;
 }
