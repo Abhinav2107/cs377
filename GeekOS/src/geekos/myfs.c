@@ -19,12 +19,13 @@ int debugmyfs = 0;
 
 struct superBlock sb;
 unsigned int dsm_array[128];
-int Allocate_Block() {
+int Allocate_Block(struct Block_Device * dev) {
 	int i, j;
 	for(i = 0; i < 128; i++) {
 		for(j = 0; j < 32; j++) {
 			if(!(dsm_array[i] & (1<<(31-j)))) {
 					dsm_array[i] = (dsm_array[i] | (1<<(31-j)));
+					Block_Write(dev, sb.dsm, dsm_array);
 					return (32 * i) + j;
 			}
 		}
@@ -52,7 +53,50 @@ static int myfs_Read(struct File * file, void * buf, ulong_t numBytes) {
 }
 
 static int myfs_Write(struct File * file, void * buf, ulong_t numBytes) {
-    return 0;
+    struct myfs_File f;
+    struct FCB_Data * fdata = (struct FCB_Data *)file->fsData;
+    if(! (file->mode & O_WRITE))
+    	return EACCESS;
+    Block_Read(file->mountPoint->dev, fdata->blockno, &f);
+    int start = file->filePos;
+    int end = start + numBytes;
+    if(end > 121 * 512)
+    	return ENOSPACE;
+    int index;
+    int offset;
+    int pos = start;
+    int written = 0;
+    while(1) {
+    	index = pos / 512;
+    	offset = pos % 512;
+    	int to_write = 512 - offset;
+    	if(to_write > end - pos)
+    		to_write = end - pos;
+    	if(to_write <= 0)
+    		break;
+    	int blockno;
+    	if((index == 0 && file->endPos == 0) || index > ((int)file->endPos - 1)/ 512) {
+    		if((blockno = Allocate_Block(file->mountPoint->dev)) < 0)
+    			break;
+    		f.fmt[index] = blockno;
+    		Block_Write(file->mountPoint->dev, fdata->blockno, &f);
+    	}
+    	else
+    		blockno = f.fmt[index];
+    	char temp[512];
+    	Block_Read(file->mountPoint->dev, blockno, temp);
+    	memcpy(temp+offset, buf+pos-start, to_write);
+    	Block_Write(file->mountPoint->dev, blockno, temp);
+    	pos += to_write;
+    	if(pos > (int)file->endPos) {
+    		file->endPos = pos;
+    		f.fileSize = file->endPos;
+    		Block_Write(file->mountPoint->dev, fdata->blockno, &f);
+    	}
+    	written += to_write;
+    }
+    file->filePos = pos;
+    return written;
 }
 
 static int myfs_Seek(struct File * file, ulong_t pos) {
@@ -151,7 +195,7 @@ static int myfs_Open(struct Mount_Point * mountPoint, const char * path, int mod
 				strcpy(f.fileName, buf);
 				f.type = 1;
 				f.perms = 7;
-				blockno = Allocate_Block();
+				blockno = Allocate_Block(mountPoint->dev);
 				if(blockno < 0)
 						return ENOSPACE;
 				Block_Write(mountPoint->dev, blockno, &f);
@@ -172,6 +216,10 @@ static int myfs_Open(struct Mount_Point * mountPoint, const char * path, int mod
 			return EEXIST;
 		blockno = dir.fileblock[i];
 	}
+	if((mode & O_WRITE) && (!(f.perms & 2)))
+		return EACCESS;
+	if((mode & O_READ) && (!(f.perms & 4)))
+		return EACCESS;
 	struct FCB_Data * fdata = Malloc(sizeof(struct FCB_Data));
 	fdata->blockno = blockno;
 	*pFile = Allocate_File(&myfs_File_Ops, 0, f.fileSize, fdata, mode, mountPoint);

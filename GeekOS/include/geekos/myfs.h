@@ -35,11 +35,6 @@ struct superBlock {
     char padding[496];
 };
 
-
-
-
-
-
 struct myfs_File {
 	int type;
 	char fileName[16];
