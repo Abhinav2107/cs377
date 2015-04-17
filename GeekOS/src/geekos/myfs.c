@@ -96,6 +96,8 @@ static void myfs_Register_Paging_File(struct Mount_Point *mountPoint, struct sup
 
 
 static int myfs_Seek(struct File * file, ulong_t pos) {
+    if(pos < 0 || pos > file->endPos)
+        return EINVALID;
 	file->filePos=pos;
     return 0;
 }
@@ -104,7 +106,6 @@ static int myfs_Read(struct File * file, void * buf, ulong_t numBytes) {
 
 
 	if(!(file->mode & O_READ)) return EACCESS;
-	myfs_Seek(file,0);
 	//if(file->mode && O_READ) return EACCESS;	
 	
 	struct myfs_File f;
@@ -235,58 +236,22 @@ static int myfs_Open(struct Mount_Point * mountPoint, const char * path, int mod
 			Write_Cache_Back(mountPoint->dev);
 			return -1;
 	}
-	char buf[16];
-	char * name = buf;
-	char * last = &buf[15];
-	int lastblock = -1;
-	memset(name, 0, 16);
-	//Print("%s\n", path);
-	path++; //Skip first slash
-	struct myfs_directoryEntry dir;
-	lastblock = sb.root;
-	Block_Read(mountPoint->dev, lastblock, (char *)&dir);
-	while(*path) {
-		if(*path == '/') {
-				if(*buf == '\x00')
-					continue;
-				else {
-					int i;
-					*name = '\x00';
-					for(i = 0; i < 24; i++) {
-						if(*dir.files[i] == '\x00')
-								continue;
-						if(!strcmp(dir.files[i], buf)) {
-							lastblock = dir.fileblock[i];
-							Block_Read(mountPoint->dev, lastblock, &dir);
-							if(dir.type != 0)
-									return ENOTDIR;
-							name = buf;
-							memset(name, 0, 16);
-							break;
-						}
-					}
-					if(i == 24)
-							return ENOTFOUND;
-				}
-		}
-		else {
-			if(name == last)
-					return ENAMETOOLONG;
-			*name = *path;
-			name++;
-			path++;
-		}
-	}
-	if(*buf == '\x00')
-			return ENOTFOUND;
+	int lastblock;
+    int index;
+    myfs_DirectoryEntry dir;
+    int ret;
+    if((ret = myfs_Lookup(mountPoint, path, &dir, &lastblock, &index)) < 0)
+        return ret;
+	path = &(path[index]);
+	if(*path == '\x00')
+        return ENOTFOUND;
 	int i;
-	*name = '\x00';
 	struct myfs_File f;
 	memset(&f, 0, 512);
 	for(i = 0; i < 24; i++) {
 			if(*dir.files[i] == '\x00')
 					continue;
-			if(!strcmp(dir.files[i], buf)) {
+			if(!strcmp(dir.files[i], path)) {
 					Block_Read(mountPoint->dev, dir.fileblock[i], &f);
 					if(f.type != 1)
 							return ENOTFOUND;
@@ -316,7 +281,7 @@ static int myfs_Open(struct Mount_Point * mountPoint, const char * path, int mod
 					}
 				}
 				if(i == 24)
-						return EUNSPECIFIED;
+						return ENOSPACE;
 			}
 	}
 	else {
@@ -337,6 +302,33 @@ static int myfs_Open(struct Mount_Point * mountPoint, const char * path, int mod
 }
 
 static int myfs_Create_Directory(struct Mount_Point * mountPoint, const char * path) {
+	struct myfs_DirectoryEntry temp;
+	int index;
+	int blockno;
+	int ret = myfs_Lookup(mountPoint, path, &temp, &index, &blockno);
+	if(ret < 0)
+		return ret;
+	if(!(temp.perms & O_WRITE))
+		return EACCESS;
+	struct myfs_DirectoryEntry new;
+	memset(&new, 0, 512);
+	new.perms = 7;
+	new.type = 0;
+	strcpy(new.fileName, &(path[index]));
+	int block = Allocate_Block(mountPoint->dev);
+	if(block < 0)
+		return ENOSPACE;
+	Block_Write(mountPoint->dev, block, &new);
+	
+	int i = 0;
+	while(( i < 24) && (*(temp.files[i]) != '\x00'))
+		i++;
+	if(i == 24)
+		return ENOSPACE;
+	strcpy(temp.files[i], &(path[index]));
+	temp.fileblock[i] = block;
+	Block_Write(mountPoint->dev, blockno, &temp);
+
     return 0;
 }
 
@@ -385,6 +377,29 @@ static int myfs_Stat(struct Mount_Point * mountPoint, const char * path, struct 
 
 static int myfs_Delete(struct Mount_Point * mountPoint, const char * path, bool recursive) {
     //Delete the file or directory (if recursive) at the path
+	struct myfs_DirectoryEntry temp;
+	int index;
+	int blockno;
+	int ret = myfs_Lookup(mountPoint, path, &temp, &index, &blockno);
+	if(ret < 0)
+		return ret;
+	if(!(temp.perms & O_WRITE))
+		return EACCESS;
+
+	if(!recursive) {
+		int i;
+		for(i = 0; i < 24; i++) {
+			if(strcmp(&(path[index]), temp.fileName[i]) == 0) {
+				// free file
+				FreeBlock(mountPoint->dev, temp.fileblock[i]);
+				memset(temp.fileName[i], 0, MAX_NAME_SIZE);
+				temp.fileblock[i] = 0;
+				return SUCCESS;
+			}
+		}
+	}
+				
+
     return 0;
 }
 
