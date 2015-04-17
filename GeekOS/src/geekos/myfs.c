@@ -13,8 +13,6 @@
 #include <geekos/projects.h>
 
 #define PAGEFILE_FILENAME "/pagefile.bin"
-#define NUM_BLOCKS_FILE 121
-#define BLOCK_SIZE 512
 
 int debugmyfs = 0;
 #define Debug(args...) if (debugmyfs) Print("myfs: " args)
@@ -35,8 +33,8 @@ int Allocate_Block(struct Block_Device * dev) {
 	return -1;
 }
 
-static int *myfs_Lookup(struct Mount_Point *mountPoint,
-                                   const char *path, struct myfs_DirectoryEntry * direntry, int * index, int * blockno) {
+static int myfs_Lookup(struct Mount_Point *mountPoint,
+                                   const char *path, struct myfs_directoryEntry * direntry, int * index, int * blockno) {
 	char buf[16];
 	char * name = buf;
 	char * last = &buf[15];
@@ -96,14 +94,11 @@ static void myfs_Register_Paging_File(struct Mount_Point *mountPoint, struct sup
 
 }
 
-static int myfs_FStat(struct File * file, struct VFS_File_Stat * stat) {
-	stat->size = (int)file->endPos;
-	stat->isDirectory = 0;
-	stat->isSetuid = 0;
-	stat->acls[0].permission = file->mode;
-	return 0;
-}
 
+static int myfs_Seek(struct File * file, ulong_t pos) {
+	file->filePos=pos;
+    return 0;
+}
 
 static int myfs_Read(struct File * file, void * buf, ulong_t numBytes) {
 
@@ -168,22 +163,22 @@ static int myfs_Write(struct File * file, void * buf, ulong_t numBytes) {
     Block_Read(file->mountPoint->dev, fdata->blockno, &f);
     int start = file->filePos;
     int end = start + numBytes;
-    if(end > NUM_BLOCKS_FILE * BLOCK_SIZE)
+    if(end > 121 * 512)
     	return ENOSPACE;
     int index;
     int offset;
     int pos = start;
     int written = 0;
     while(1) {
-    	index = pos / BLOCK_SIZE;
-    	offset = pos % BLOCK_SIZE;
-    	int to_write = BLOCK_SIZE - offset;
+    	index = pos / 512;
+    	offset = pos % 512;
+    	int to_write = 512 - offset;
     	if(to_write > end - pos)
     		to_write = end - pos;
     	if(to_write <= 0)
     		break;
     	int blockno;
-    	if((index == 0 && file->endPos == 0) || index > ((int)file->endPos - 1)/ BLOCK_SIZE) {
+    	if((index == 0 && file->endPos == 0) || index > ((int)file->endPos - 1)/ 512) {
     		if((blockno = Allocate_Block(file->mountPoint->dev)) < 0)
     			break;
     		f.fmt[index] = blockno;
@@ -191,7 +186,7 @@ static int myfs_Write(struct File * file, void * buf, ulong_t numBytes) {
     	}
     	else
     		blockno = f.fmt[index];
-    	char temp[BLOCK_SIZE];
+    	char temp[512];
     	Block_Read(file->mountPoint->dev, blockno, temp);
     	memcpy(temp+offset, buf+pos-start, to_write);
     	Block_Write(file->mountPoint->dev, blockno, temp);
@@ -199,7 +194,7 @@ static int myfs_Write(struct File * file, void * buf, ulong_t numBytes) {
     	if(pos > (int)file->endPos) {
     		file->endPos = pos;
     		f.fileSize = file->endPos;
-    		Block_Write(file->mountPoint->dev, fdata->blockno, &f);
+    	Block_Write(file->mountPoint->dev, fdata->blockno, &f);
     	}
     	written += to_write;
     }
@@ -207,32 +202,13 @@ static int myfs_Write(struct File * file, void * buf, ulong_t numBytes) {
     return written;
 }
 
-static int myfs_Seek(struct File * file, ulong_t pos) {
-	//seek to "pos"
-	//change the filePos to pos 
-	struct myfs_File f;
-    struct FCB_Data * fdata = (struct FCB_Data *)file->fsData;
-    
-    Block_Read(file->mountPoint->dev, fdata->blockno, &f);
-    int curr_filePos = file->filePos;
-    int seek_to = pos;
-    int endpos = file->endPos;
 
-    if((int)pos > endpos || (int)pos < 0)
-    	return EINVALID;
-    else if(pos != file->filePos)
-    {
-    	file->filePos = pos;
-    	//f.fileSize = file->endPos;
-    	//Block_Write(file->mountPoint->dev, fdata->blockno, &f);
-/*    	ulong_t curBlock = fdata->blockno;
-        uint_t i;
-        for (i = 0; i < pos; i += 512) {
-            curBlock = instance->fat[curBlock];
-        }
-        pfatFile->currBlock = curBlock;*/
-    }
-    return 0;
+static int myfs_FStat(struct File * file, struct VFS_File_Stat * stat) {
+	stat->size = (int)file->endPos;
+	stat->isDirectory = 0;
+	stat->isSetuid = 0;
+	stat->acls[0].permission = file->mode;
+	return 0;
 }
 
 static int myfs_Close(struct File * file) {
@@ -241,7 +217,7 @@ static int myfs_Close(struct File * file) {
 }
 
 static struct File_Ops myfs_File_Ops = {
-    &myfs_FStat,
+    &myfs_FStat, //Fstat
     &myfs_Read,
     &myfs_Write,
     &myfs_Seek,
@@ -306,7 +282,7 @@ static int myfs_Open(struct Mount_Point * mountPoint, const char * path, int mod
 	int i;
 	*name = '\x00';
 	struct myfs_File f;
-	memset(&f, 0, BLOCK_SIZE);
+	memset(&f, 0, 512);
 	for(i = 0; i < 24; i++) {
 			if(*dir.files[i] == '\x00')
 					continue;
@@ -365,19 +341,45 @@ static int myfs_Create_Directory(struct Mount_Point * mountPoint, const char * p
 }
 
 
-/*static int Copy_Stat_For_myfs(struct VFS_File_Stat *stat, struct myfs_directoryEntry * entry)
-{
-	stat->size = entry->fileSize;
-    stat->isDirectory = entry->directory;
+static int Copy_Stat_For_myfs(struct VFS_File_Stat *stat, struct myfs_directoryEntry * entry){
+	
 
-    stat->isSetuid = entry->isSetUid;
-    memcpy(stat->acls, entry->acls, sizeof(stat->acls));
     return 0;
 
-}*/
+}
 
 static int myfs_Stat(struct Mount_Point * mountPoint, const char * path, struct VFS_File_Stat * stat) {
-
+    Print("in myfs_stat");
+    struct myfs_directoryEntry dirInfo;
+    int index,block;
+    int search=myfs_Lookup(mountPoint,path,&dirInfo,&index,&block);
+    if(search<0) return ENOTFOUND;
+    int i;
+    char fname[16];
+    strcpy(fname,&path[index]);
+    int flag=0;
+    int fileBlockNo;
+    for(i=0;i<24;i++){
+    	if(strcmp(fname,dirInfo.files[i])==0) {flag=1;fileBlockNo=dirInfo.fileblock[i];break;}
+    }
+    if(!flag) return ENOTFOUND;
+    void* info_buf = Malloc(512);
+    Block_Read(mountPoint->dev,fileBlockNo,info_buf);
+	int type = ((int*)info_buf)[0];
+	//directory
+	if(type==0){
+			struct myfs_directoryEntry * curDir = (struct myfs_directoryEntry*)info_buf;
+			//stat->size = entry->fileSize;
+	    	stat->isDirectory = 1;
+	    	stat->isSetuid = 0;
+	}
+	//file
+	else{
+		struct myfs_File * curFile = (struct myfs_File*)info_buf;
+		stat->size=curFile->fileSize;
+		stat->isDirectory = 0;
+	    stat->isSetuid = 0;
+	}
     return 0;
 }
 
@@ -386,12 +388,68 @@ static int myfs_Delete(struct Mount_Point * mountPoint, const char * path, bool 
     return 0;
 }
 
+//
 static int myfs_Rename(struct Mount_Point * mountPoint, const char * oldpath, const char * newpath) {
-    return 0;
+	struct myfs_directoryEntry dirInfo;
+    int index,block;
+    int search=myfs_Lookup(mountPoint,oldpath,&dirInfo,&index,&block);
+    if(search<0) return ENOTFOUND;
+    int i;
+    char fname[16];
+    strcpy(fname,&oldpath[index]);
+    int flag=0;
+    int fileBlockNo;
+    int entryNo;
+    for(i=0;i<24;i++){
+    	if(dirInfo.fileblock[i]!=0){
+    		if(strcmp(fname,dirInfo.files[i])==0) {
+    			flag=1;fileBlockNo=dirInfo.fileblock[i];entryNo=i;break;
+    		}
+    	}
+    }
+    if(!flag) return ENOTFOUND;
 
-	
 
 
+    struct myfs_directoryEntry newDirInfo;
+    int newIndex,newBlock;
+    int newSearch=myfs_Lookup(mountPoint,newpath,&newDirInfo,&newIndex,&newBlock);
+    if(newSearch<0) return ENOTFOUND;
+    char newFname[16];
+    strcpy(newFname,&newpath[newIndex]);
+    flag=0;
+    int newFileBlockNo;
+    int emptyIndex=-1;
+    for(i=0;i<24;i++){
+    	if(newDirInfo.fileblock[23-i]==0) emptyIndex=i;
+    	if(strcmp(newFname,newDirInfo.files[i])==0) {flag=1;break;}
+    }
+    if(flag) return EEXIST;
+    if(emptyIndex==-1) return ENOSPACE;	
+
+    //remove from old path
+
+    strcpy(dirInfo.files[entryNo],"");//Darsh
+    /*int ij;
+    for(ij=0;ij<MAX_NAME_SIZE;ij++)
+    {
+    	dirInfo.files[entryNo][ij]='';
+    }*/
+    dirInfo.fileblock[entryNo]=0;
+    //write it back
+    Block_Write(mountPoint->dev,block,(void*)&dirInfo);
+
+    //enter into new path
+    strcpy(newDirInfo.files[emptyIndex],(fname));//Darsh
+    newDirInfo.fileblock[emptyIndex]=fileBlockNo;
+    //write it back
+    Block_Write(mountPoint->dev,newBlock,(void*)&newDirInfo);
+
+
+
+
+
+	return 0;
 }
 
 struct Mount_Point_Ops myfs_Mount_Point_Ops = {
@@ -410,15 +468,15 @@ struct Mount_Point_Ops myfs_Mount_Point_Ops = {
 };
 
 static int myfs_Format(struct Block_Device * blockDev) {
-	memset(&sb, 0, BLOCK_SIZE);
+	memset(&sb, 0, 512);
     sb.magic=69;
     sb.dsm=1;
     sb.root=2;
     sb.n_blocks=2048;
-    memset(dsm_array,0,BLOCK_SIZE);
+    memset(dsm_array,0,512);
     dsm_array[0]=(1<<31)|(1<<30)|(1<<29);
     struct myfs_directoryEntry root;
-    memset(&root,0,BLOCK_SIZE);
+    memset(&root,0,512);
     root.type=0;//Directory
     root.perms=7;
     Block_Write(blockDev,0,&sb);
