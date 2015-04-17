@@ -25,6 +25,7 @@ struct myfs_directoryEntry{
     int perms; // permission
     int faltu;
 };
+
 struct myfs_File;
 
 struct superBlock {

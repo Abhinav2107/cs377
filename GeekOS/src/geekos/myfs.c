@@ -35,10 +35,58 @@ int Allocate_Block(struct Block_Device * dev) {
 	return -1;
 }
 
-static struct myfs_directoryEntry *myfs_Lookup(struct Mount_Point *mountPoint,
-                                   const char *path) {;
+static int *myfs_Lookup(struct Mount_Point *mountPoint,
+                                   const char *path, struct myfs_DirectoryEntry * direntry, int * index, int * blockno) {
+	char buf[16];
+	char * name = buf;
+	char * last = &buf[15];
+	int lastblock = -1;
+	memset(name, 0, 16);
+	//Print("%s\n", path);
+	path++; //Skip first slash
+	struct myfs_directoryEntry dir;
+	lastblock = sb.root;
+	Block_Read(mountPoint->dev, lastblock, (char *)&dir);
+	*index = 1;
+	while(*path) {
+		if(*path == '/') {
+				if(*buf == '\x00') {
+					path++;
+					(*index)++;
+					continue;
+				}
+				else {
+					int i;
+					*name = '\x00';
+					for(i = 0; i < 24; i++) {
+						if(*dir.files[i] == '\x00')
+								continue;
+						if(!strcmp(dir.files[i], buf)) {
+							lastblock = dir.fileblock[i];
+							Block_Read(mountPoint->dev, lastblock, &dir);
+							if(dir.type != 0)
+									return ENOTDIR;
+							name = buf;
+							memset(name, 0, 16);
+							break;
+						}
+					}
+					if(i == 24)
+							return ENOTFOUND;
+				}
+		}
+		else {
+			if(name == last)
+					return ENAMETOOLONG;
+			*name = *path;
+			name++;
+			path++;
+			(*index)++;
+		}
+	}
 
-
+	*blockno = lastblock;
+	*direntry = dir;
     return 0;
 }
 
