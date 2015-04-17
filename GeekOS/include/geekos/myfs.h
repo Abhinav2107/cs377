@@ -17,12 +17,11 @@
 struct myfs_directoryEntry{
 	int type;
     char fileName[MAX_NAME_SIZE];
-
+    int perms; // permission
     /* attribute bits */
     int next; // incase of overflow of directory
     char files[24][MAX_NAME_SIZE];
     int fileblock[24];
-    int perms; // permission
     int faltu;
 };
 
@@ -39,13 +38,14 @@ struct superBlock {
 struct myfs_File {
 	int type;
 	char fileName[16];
-	int fileSize;
 	int perms;
+	int fileSize;
 	int fmt[121];
 };
 
 struct FCB_Data {
 	int blockno;
+    int type;
 };
 
 void Init_myfs();

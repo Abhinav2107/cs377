@@ -217,6 +217,36 @@ static int myfs_Close(struct File * file) {
     return 0;
 }
 
+static int myfs_Read_Entry(struct File * dir, struct VFS_Dir_Entry * entry) {
+    struct FCB_Data * fdata;
+    fdata = (struct FCB_Data *)dir->fsData;
+    struct myfs_DirectoryEntry direntry;
+    struct myfs_File f;
+    Block_Read(dir->mountPoint->dev, fdata->blockno, &direntry);
+    while(dir->filePos < dir->endPos) {
+        if(*direntry.files[dir->filePos] == '\x00') {
+            dir->filePos++;
+            continue;
+        }
+        Block_Read(dir->mountPoint->dev, direntry.fileblock[dir->filePos], &f);
+        strcpy(entry->name, direntry.files[dir->filePos]);
+        entry->stats.isSetuid = 0;
+        entry->stats.acls[0].uid = 0;
+        entry->stats.acls[0].permission = f.perms;
+        if(f.type == 0) {
+            entry->stats.size = 512;
+            entry->stats.isDirectory = 1;
+        }
+        else {
+            entry->stats.size = f.fileSize;
+            entry->stats.isDirectory = 0;
+        }
+        dir->filePos++;
+        return 0;
+    }
+    return 1;
+}
+
 static struct File_Ops myfs_File_Ops = {
     &myfs_FStat, //Fstat
     &myfs_Read,
@@ -295,6 +325,7 @@ static int myfs_Open(struct Mount_Point * mountPoint, const char * path, int mod
 		return EACCESS;
 	struct FCB_Data * fdata = Malloc(sizeof(struct FCB_Data));
 	fdata->blockno = blockno;
+    fdata->type = 1;
 	*pFile = Allocate_File(&myfs_File_Ops, 0, f.fileSize, fdata, mode, mountPoint);
 	if(!*pFile)
 			return EUNSPECIFIED;
@@ -332,6 +363,25 @@ static int myfs_Create_Directory(struct Mount_Point * mountPoint, const char * p
     return 0;
 }
 
+static int myfs_Open_Directory(struct Mount_Point * mountPoint, const char * path, struct File ** pdir) {
+    int block;
+    int index;
+    int ret;
+    struct myfs_DirectoryEntry dir;
+    if((ret = myfs_Lookup(mountPoint, path, &dir, &index, &block)) < 0)
+        return ret;
+    path = &(path[index]);
+    struct FCB_Data * fdata = (struct FCB_Data *)Malloc(sizeof(struct FCB_Data));
+    fdata->type = 0;
+    if(*path == "\x00") {
+        fdata->blockno = block;
+        *pdir = Allocate_File(&myfs_File_Ops, 0, 24, fdata, 0, mountPoint);
+        if(!(*pdir))
+            return ENOMEM;
+        return 0;
+    }
+    return EUNSPECIFIED;
+}
 
 static int Copy_Stat_For_myfs(struct VFS_File_Stat *stat, struct myfs_directoryEntry * entry){
 	
@@ -470,7 +520,7 @@ static int myfs_Rename(struct Mount_Point * mountPoint, const char * oldpath, co
 struct Mount_Point_Ops myfs_Mount_Point_Ops = {
     &myfs_Open,
     &myfs_Create_Directory,
-    0, //Open_Directory
+    &myfs_Open_Directory, //Open_Directory
     &myfs_Stat,
     0, //Sync
     &myfs_Delete,
