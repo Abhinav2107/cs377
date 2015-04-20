@@ -33,6 +33,11 @@ int Allocate_Block(struct Block_Device * dev) {
 	return -1;
 }
 
+void Free_Block(struct Block_Device * dev, int blockno) {
+	dsm_array[blockno/32] = (dsm_array[blockno/32] & (~(1<<(31-(blockno%32)))));
+	Block_Write(dev, sb.dsm, dsm_array);
+}
+
 static int myfs_Lookup(struct Mount_Point *mountPoint,
                                    const char *path, struct myfs_directoryEntry * direntry, int * index, int * blockno) {
 	char buf[16];
@@ -45,12 +50,14 @@ static int myfs_Lookup(struct Mount_Point *mountPoint,
 	struct myfs_directoryEntry dir;
 	lastblock = sb.root;
 	Block_Read(mountPoint->dev, lastblock, (char *)&dir);
+	int idx = 1;
 	*index = 1;
 	while(*path) {
 		if(*path == '/') {
+				path++;
+				idx++;
+				*index = idx;
 				if(*buf == '\x00') {
-					path++;
-					(*index)++;
 					continue;
 				}
 				else {
@@ -79,7 +86,7 @@ static int myfs_Lookup(struct Mount_Point *mountPoint,
 			*name = *path;
 			name++;
 			path++;
-			(*index)++;
+			idx++;
 		}
 	}
 
@@ -96,7 +103,7 @@ static void myfs_Register_Paging_File(struct Mount_Point *mountPoint, struct sup
 
 
 static int myfs_Seek(struct File * file, ulong_t pos) {
-    if(pos < 0 || pos > file->endPos)
+    if(pos > file->endPos)
         return EINVALID;
 	file->filePos=pos;
     return 0;
@@ -110,7 +117,9 @@ static int myfs_Read(struct File * file, void * buf, ulong_t numBytes) {
 	
 	struct myfs_File f;
 	Block_Read(file->mountPoint->dev,((struct FCB_Data*)file->fsData)->blockno,&f);
-	if((int)file->filePos+(int)numBytes>f.fileSize) return -22;
+	if((int)file->filePos+(int)numBytes>f.fileSize) {
+		numBytes = f.fileSize - (int)file->filePos;
+	}
 
 	ulong_t bytesRead=0;
 	int curPos=file->filePos;
@@ -153,7 +162,7 @@ static int myfs_Read(struct File * file, void * buf, ulong_t numBytes) {
 	}
 	Free(tempbuf2);
 	file->filePos += numBytes;
-    return 0;
+    return bytesRead;
 }
 
 static int myfs_Write(struct File * file, void * buf, ulong_t numBytes) {
@@ -195,7 +204,7 @@ static int myfs_Write(struct File * file, void * buf, ulong_t numBytes) {
     	if(pos > (int)file->endPos) {
     		file->endPos = pos;
     		f.fileSize = file->endPos;
-    	Block_Write(file->mountPoint->dev, fdata->blockno, &f);
+    		Block_Write(file->mountPoint->dev, fdata->blockno, &f);
     	}
     	written += to_write;
     }
@@ -214,13 +223,14 @@ static int myfs_FStat(struct File * file, struct VFS_File_Stat * stat) {
 
 static int myfs_Close(struct File * file) {
     //Any close operations if required
+	Free(file->fsData);
     return 0;
 }
 
 static int myfs_Read_Entry(struct File * dir, struct VFS_Dir_Entry * entry) {
     struct FCB_Data * fdata;
     fdata = (struct FCB_Data *)dir->fsData;
-    struct myfs_DirectoryEntry direntry;
+    struct myfs_directoryEntry direntry;
     struct myfs_File f;
     Block_Read(dir->mountPoint->dev, fdata->blockno, &direntry);
     while(dir->filePos < dir->endPos) {
@@ -253,7 +263,7 @@ static struct File_Ops myfs_File_Ops = {
     &myfs_Write,
     &myfs_Seek,
     &myfs_Close,
-    0, //Read_Entry
+    &myfs_Read_Entry, //Read_Entry
 };
 
 static struct myfs_File* Get_myfs_File(struct superBlock * sblock, struct myfs_directoryEntry * entry){
@@ -268,9 +278,9 @@ static int myfs_Open(struct Mount_Point * mountPoint, const char * path, int mod
 	}
 	int lastblock;
     int index;
-    myfs_DirectoryEntry dir;
+    struct myfs_directoryEntry dir;
     int ret;
-    if((ret = myfs_Lookup(mountPoint, path, &dir, &lastblock, &index)) < 0)
+    if((ret = myfs_Lookup(mountPoint, path, &dir, &index, &lastblock)) < 0)
         return ret;
 	path = &(path[index]);
 	if(*path == '\x00')
@@ -295,7 +305,7 @@ static int myfs_Open(struct Mount_Point * mountPoint, const char * path, int mod
 			else {
 				if(!(dir.perms & 2))
 					return EACCESS;
-				strcpy(f.fileName, buf);
+				strcpy(f.fileName, path);
 				f.type = 1;
 				f.perms = 7;
 				blockno = Allocate_Block(mountPoint->dev);
@@ -333,7 +343,7 @@ static int myfs_Open(struct Mount_Point * mountPoint, const char * path, int mod
 }
 
 static int myfs_Create_Directory(struct Mount_Point * mountPoint, const char * path) {
-	struct myfs_DirectoryEntry temp;
+	struct myfs_directoryEntry temp;
 	int index;
 	int blockno;
 	int ret = myfs_Lookup(mountPoint, path, &temp, &index, &blockno);
@@ -341,7 +351,7 @@ static int myfs_Create_Directory(struct Mount_Point * mountPoint, const char * p
 		return ret;
 	if(!(temp.perms & O_WRITE))
 		return EACCESS;
-	struct myfs_DirectoryEntry new;
+	struct myfs_directoryEntry new;
 	memset(&new, 0, 512);
 	new.perms = 7;
 	new.type = 0;
@@ -367,20 +377,41 @@ static int myfs_Open_Directory(struct Mount_Point * mountPoint, const char * pat
     int block;
     int index;
     int ret;
-    struct myfs_DirectoryEntry dir;
+    struct myfs_directoryEntry dir;
     if((ret = myfs_Lookup(mountPoint, path, &dir, &index, &block)) < 0)
         return ret;
     path = &(path[index]);
     struct FCB_Data * fdata = (struct FCB_Data *)Malloc(sizeof(struct FCB_Data));
     fdata->type = 0;
-    if(*path == "\x00") {
+    if(*path == '\x00') {
         fdata->blockno = block;
-        *pdir = Allocate_File(&myfs_File_Ops, 0, 24, fdata, 0, mountPoint);
-        if(!(*pdir))
-            return ENOMEM;
-        return 0;
     }
-    return EUNSPECIFIED;
+	else {
+		int i;
+		for(i = 0; i < 24; i++) {
+			if(!strcmp(path, dir.files[i])) {
+				block = dir.fileblock[i];
+				Block_Read(mountPoint->dev, block, &dir);
+				if(dir.type != 0) {
+					Free(fdata);
+					return ENOTDIR;
+				}
+				fdata->blockno = block;
+				break;
+			}
+		}
+		if(i == 24) {
+				Free(fdata);
+				return ENOTFOUND;
+		}
+	}
+    *pdir = Allocate_File(&myfs_File_Ops, 0, 24, fdata, 0, mountPoint);
+    if(!(*pdir)) {
+		Free(fdata);
+        return ENOMEM;
+	}
+	return 0;
+
 }
 
 static int Copy_Stat_For_myfs(struct VFS_File_Stat *stat, struct myfs_directoryEntry * entry){
@@ -391,66 +422,103 @@ static int Copy_Stat_For_myfs(struct VFS_File_Stat *stat, struct myfs_directoryE
 }
 
 static int myfs_Stat(struct Mount_Point * mountPoint, const char * path, struct VFS_File_Stat * stat) {
-    Print("in myfs_stat");
     struct myfs_directoryEntry dirInfo;
     int index,block;
     int search=myfs_Lookup(mountPoint,path,&dirInfo,&index,&block);
-    if(search<0) return ENOTFOUND;
+    if(search<0) return search;
     int i;
     char fname[16];
     strcpy(fname,&path[index]);
+	stat->isSetuid = 0;
+	stat->acls[0].uid = 0;
+	if(fname[0] == '\x00') {
+		stat->isDirectory = 1;
+		stat->size = 512;
+		stat->acls[0].permission = dirInfo.perms;
+		return 0;
+	}
     int flag=0;
     int fileBlockNo;
     for(i=0;i<24;i++){
-    	if(strcmp(fname,dirInfo.files[i])==0) {flag=1;fileBlockNo=dirInfo.fileblock[i];break;}
+    	if(strcmp(fname,dirInfo.files[i])==0) {
+				flag=1;
+				fileBlockNo=dirInfo.fileblock[i];
+				break;
+		}
     }
     if(!flag) return ENOTFOUND;
-    void* info_buf = Malloc(512);
-    Block_Read(mountPoint->dev,fileBlockNo,info_buf);
-	int type = ((int*)info_buf)[0];
+    struct myfs_File f;
+    Block_Read(mountPoint->dev,fileBlockNo,&f);
 	//directory
-	if(type==0){
-			struct myfs_directoryEntry * curDir = (struct myfs_directoryEntry*)info_buf;
-			//stat->size = entry->fileSize;
-	    	stat->isDirectory = 1;
-	    	stat->isSetuid = 0;
+	if(f.type==0){
+			stat->isDirectory = 1;
+			stat->size = 512;
 	}
 	//file
 	else{
-		struct myfs_File * curFile = (struct myfs_File*)info_buf;
-		stat->size=curFile->fileSize;
 		stat->isDirectory = 0;
-	    stat->isSetuid = 0;
+		stat->size = f.fileSize;
 	}
+	stat->acls[0].permission = f.perms;
     return 0;
+}
+
+int __myfs_Delete(struct Mount_Point *mountPoint, const char *path, bool recursive, struct myfs_directoryEntry *temp, int blockno) {
+	int i;
+	for(i = 0; i < 24; i++) {
+		if(*temp->files[i] == '\x00')
+				continue;
+		if(path == NULL || (strcmp(path, temp->files[i]) == 0)) {
+			struct myfs_File buf;
+			Block_Read(mountPoint->dev, temp->fileblock[i], &buf);
+			if(buf.type == 0) {
+				if(!recursive)					
+					return ENOTFOUND;
+				
+				int ret = __myfs_Delete(mountPoint, NULL, recursive, (struct myfs_directoryEntry *)(&buf), temp->fileblock[i]);
+				if(ret != 0)
+						return ret;
+			}
+			else {
+				int j;
+				for(j = 0; j < 121; j++) {
+					if(buf.fmt[j] != 0)
+						Free_Block(mountPoint->dev, buf.fmt[j]);
+				}
+			}
+			Free_Block(mountPoint->dev, temp->fileblock[i]);
+			memset(temp->files[i], 0, MAX_NAME_SIZE);
+			temp->fileblock[i] = 0;
+			Block_Write(mountPoint->dev, blockno, temp);
+			if(path != NULL)
+					return 0;
+			
+		}
+	}
+
+	if(path == NULL)
+		return 0;
+	return ENOTFOUND;
 }
 
 static int myfs_Delete(struct Mount_Point * mountPoint, const char * path, bool recursive) {
     //Delete the file or directory (if recursive) at the path
-	struct myfs_DirectoryEntry temp;
+	int len = strlen(path);
+	char * notconstpath = (char *)Malloc(len+1);
+	strcpy(notconstpath, path);
+	if(notconstpath[strlen(notconstpath)-1] == '/')
+			notconstpath[strlen(notconstpath)-1] = '\x00';
+	struct myfs_directoryEntry temp;
 	int index;
 	int blockno;
-	int ret = myfs_Lookup(mountPoint, path, &temp, &index, &blockno);
+	int ret = myfs_Lookup(mountPoint, notconstpath, &temp, &index, &blockno);
 	if(ret < 0)
 		return ret;
 	if(!(temp.perms & O_WRITE))
 		return EACCESS;
-
-	if(!recursive) {
-		int i;
-		for(i = 0; i < 24; i++) {
-			if(strcmp(&(path[index]), temp.fileName[i]) == 0) {
-				// free file
-				FreeBlock(mountPoint->dev, temp.fileblock[i]);
-				memset(temp.fileName[i], 0, MAX_NAME_SIZE);
-				temp.fileblock[i] = 0;
-				return SUCCESS;
-			}
-		}
-	}
-				
-
-    return 0;
+	ret = __myfs_Delete(mountPoint, &(notconstpath[index]), recursive, &temp, blockno);
+	Free(notconstpath);
+	return ret;
 }
 
 //

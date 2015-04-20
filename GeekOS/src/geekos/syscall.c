@@ -523,8 +523,30 @@ static int Sys_Open(struct Interrupt_State *state) {
  *   or an error code (< 0) if unsuccessful
  */
 static int Sys_OpenDirectory(struct Interrupt_State *state) {
-    TODO_P(PROJECT_FS, "Open directory system call");
-    return EUNSUPPORTED;
+    char *path;
+    struct File *file;
+    int rc = 0;
+
+    rc = get_path_from_registers(state->ebx, state->ecx, &path);
+    if (rc != 0) {
+        return rc;
+    }
+
+    rc = next_descriptor();
+    if (rc < 0) {
+        return rc;
+    }
+
+    Enable_Interrupts();        // duped from schulman
+    rc = Open_Directory(path, &file);
+    Disable_Interrupts();
+    Free(path);
+
+    if (rc >= 0) {
+        return add_file_to_descriptor_table(file);
+    } else {
+        return rc;
+    }
 }
 
 /*
@@ -561,8 +583,20 @@ static int Sys_Close(struct Interrupt_State *state) {
  * Returns: 0 if successful, error code (< 0) if unsuccessful
  */
 static int Sys_Delete(struct Interrupt_State *state) {
-    TODO_P(PROJECT_FS, "Delete system call");
-    return EUNSUPPORTED;
+    char *path;
+    int rc = 0;
+
+    rc = get_path_from_registers(state->ebx, state->ecx, &path);
+    if (rc != 0) {
+        return rc;
+    }
+
+    Enable_Interrupts();        // duped from schulman
+    rc = Delete(path, state->edx);
+    Disable_Interrupts();
+    Free(path);
+
+	return rc;
 }
 
 /*
@@ -576,8 +610,25 @@ static int Sys_Delete(struct Interrupt_State *state) {
  * Returns: 0 if successful, error code (< 0) if unsuccessful
  */
 static int Sys_Rename(struct Interrupt_State *state) {
-    TODO_P(PROJECT_FS, "Rename system call");
-    return EUNSUPPORTED;
+    char *oldpath;
+	char *newpath;
+    int rc = 0;
+
+    rc = get_path_from_registers(state->ebx, state->ecx, &oldpath);
+    if (rc != 0) {
+        return rc;
+    }
+	rc = get_path_from_registers(state->edx, state->esi, &newpath);
+	if (rc != 0) {
+			return rc;
+	}
+
+    Enable_Interrupts();        // duped from schulman
+    rc = Rename(oldpath, newpath);
+    Disable_Interrupts();
+    Free(oldpath);
+	Free(newpath);
+	return rc;
 }
 
 /*
@@ -655,8 +706,30 @@ static int Sys_Read(struct Interrupt_State *state) {
  * Returns: 0 if successful, error code (< 0) if unsuccessful
  */
 static int Sys_ReadEntry(struct Interrupt_State *state) {
-    TODO_P(PROJECT_FS, "ReadEntry system call");
-    return EUNSUPPORTED;
+    int bytes_read = 0;
+    /* where is the file table? */
+    if (state->ebx > USER_MAX_FILES) {
+        return EINVALID;
+    }
+    if (CURRENT_THREAD->userContext->file_descriptor_table[state->ebx]) {
+        struct VFS_Dir_Entry *data_buffer = Malloc(sizeof(struct VFS_Dir_Entry));
+        if (!data_buffer) {
+            return ENOMEM;
+        }
+        Enable_Interrupts();
+        bytes_read =
+            Read_Entry(CURRENT_THREAD->userContext->
+                 file_descriptor_table[state->ebx], data_buffer);
+        Disable_Interrupts();
+        if (!Copy_To_User(state->ecx, data_buffer, sizeof(struct VFS_Dir_Entry))) {
+            Free(data_buffer);
+            return EINVALID;
+        }
+        Free(data_buffer);
+        return bytes_read;
+    } else {
+        return ENOTFOUND;
+    }
 }
 
 /*
@@ -706,8 +779,31 @@ static int Sys_Write(struct Interrupt_State *state) {
  * Returns: 0 if successful, error code (< 0) if unsuccessful
  */
 static int Sys_Stat(struct Interrupt_State *state) {
-    TODO_P(PROJECT_FS, "Stat system call");
-    return EUNSUPPORTED;
+    char *path;
+    struct File *file;
+    int rc = 0;
+
+    rc = get_path_from_registers(state->ebx, state->ecx, &path);
+    if (rc != 0) {
+        return rc;
+    }
+
+	struct VFS_File_Stat *data_buffer = Malloc(sizeof(struct VFS_File_Stat));
+	if (!data_buffer) {
+		return ENOMEM;
+	}
+	Enable_Interrupts();
+	rc = Stat(path, data_buffer);
+	Disable_Interrupts();
+	Free(path);
+	if (rc < 0 || (!Copy_To_User(state->edx, data_buffer, sizeof(struct VFS_File_Stat)))) {
+		Free(data_buffer);
+		if(rc < 0)
+			return rc;
+		return EINVALID;
+	}
+	Free(data_buffer);
+	return 0;
 }
 
 /*
@@ -719,8 +815,30 @@ static int Sys_Stat(struct Interrupt_State *state) {
  * Returns: 0 if successful, error code (< 0) if unsuccessful
  */
 static int Sys_FStat(struct Interrupt_State *state) {
-    TODO_P(PROJECT_FS, "FStat system call");
-    return EUNSUPPORTED;
+    int bytes_read = 0;
+    /* where is the file table? */
+    if (state->ebx > USER_MAX_FILES) {
+        return EINVALID;
+    }
+    if (CURRENT_THREAD->userContext->file_descriptor_table[state->ebx]) {
+        struct VFS_File_Stat *data_buffer = Malloc(sizeof(struct VFS_File_Stat));
+        if (!data_buffer) {
+            return ENOMEM;
+        }
+        Enable_Interrupts();
+        bytes_read =
+            FStat(CURRENT_THREAD->userContext->
+                 file_descriptor_table[state->ebx], data_buffer);
+        Disable_Interrupts();
+        if (!Copy_To_User(state->ecx, data_buffer, sizeof(struct VFS_File_Stat))) {
+            Free(data_buffer);
+            return EINVALID;
+        }
+        Free(data_buffer);
+        return bytes_read;
+    } else {
+        return ENOTFOUND;
+    }
 }
 
 /*
@@ -732,8 +850,22 @@ static int Sys_FStat(struct Interrupt_State *state) {
  * Returns: 0 if successful, error code (< 0) if unsuccessful
  */
 static int Sys_Seek(struct Interrupt_State *state) {
-    TODO_P(PROJECT_FS, "Seek system call");
-    return EUNSUPPORTED;
+	int bytes_read = 0;
+    /* where is the file table? */
+    if (state->ebx > USER_MAX_FILES) {
+        return EINVALID;
+    }
+    if (CURRENT_THREAD->userContext->file_descriptor_table[state->ebx]) {
+        Enable_Interrupts();
+        bytes_read =
+            Seek(CURRENT_THREAD->userContext->
+                 file_descriptor_table[state->ebx], state->ecx);
+        Disable_Interrupts();
+        return bytes_read;
+    } else {
+        return ENOTFOUND;
+    }
+
 }
 
 /*
@@ -745,8 +877,20 @@ static int Sys_Seek(struct Interrupt_State *state) {
  * Returns: 0 if successful, error code (< 0) if unsuccessful
  */
 static int Sys_CreateDir(struct Interrupt_State *state) {
-    TODO_P(PROJECT_FS, "CreateDir system call");
-    return EUNSUPPORTED;
+    char *path;
+    struct File *file;
+    int rc = 0;
+
+    rc = get_path_from_registers(state->ebx, state->ecx, &path);
+    if (rc != 0) {
+        return rc;
+    }
+
+	Enable_Interrupts();
+	rc = Create_Directory(path);
+	Disable_Interrupts();
+	Free(path);
+	return rc;
 }
 
 /*

@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
 
     if (!stat.isDirectory || recursive) {
         rc = Delete(argv[1], recursive);
-        if (rc <= 0) {
+        if (rc < 0) {
             Print("Error deleting %s: %s\n", argv[1], Get_Error_String(rc));
             return 1;
         }

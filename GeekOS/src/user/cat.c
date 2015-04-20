@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
     for (read = 0; read < stat.size; read += ret) {
         ret = Read(inFd, buffer, sizeof(buffer) - 1);
         if (ret < 0) {
-            Print("error reading file for copy\n");
+            Print("error reading file for copy %s\n", Get_Error_String(ret));
             Exit(-1);
         }
 
