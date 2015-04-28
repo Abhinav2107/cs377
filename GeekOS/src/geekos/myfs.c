@@ -526,7 +526,8 @@ static int myfs_Rename(struct Mount_Point * mountPoint, const char * oldpath, co
 	struct myfs_directoryEntry dirInfo;
     int index,block;
     int search=myfs_Lookup(mountPoint,oldpath,&dirInfo,&index,&block);
-    if(search<0) return ENOTFOUND;
+    if(search<0) 
+			return search;
     int i;
     char fname[16];
     strcpy(fname,&oldpath[index]);
@@ -536,44 +537,56 @@ static int myfs_Rename(struct Mount_Point * mountPoint, const char * oldpath, co
     for(i=0;i<24;i++){
     	if(dirInfo.fileblock[i]!=0){
     		if(strcmp(fname,dirInfo.files[i])==0) {
-    			flag=1;fileBlockNo=dirInfo.fileblock[i];entryNo=i;break;
+    			flag=1;
+				fileBlockNo=dirInfo.fileblock[i];
+				entryNo=i;
+				break;
     		}
     	}
     }
-    if(!flag) return ENOTFOUND;
+    if(!flag) 
+			return ENOTFOUND;
 
 
 
     struct myfs_directoryEntry newDirInfo;
     int newIndex,newBlock;
     int newSearch=myfs_Lookup(mountPoint,newpath,&newDirInfo,&newIndex,&newBlock);
-    if(newSearch<0) return ENOTFOUND;
+    if(newSearch<0) 
+			return search;
     char newFname[16];
     strcpy(newFname,&newpath[newIndex]);
     flag=0;
     int newFileBlockNo;
     int emptyIndex=-1;
     for(i=0;i<24;i++){
-    	if(newDirInfo.fileblock[23-i]==0) emptyIndex=i;
-    	if(strcmp(newFname,newDirInfo.files[i])==0) {flag=1;break;}
+    	if(newDirInfo.fileblock[23-i]==0) {
+				emptyIndex=23-i;
+				continue;
+		}
+    	if(strcmp(newFname,newDirInfo.files[23-i])==0) {
+				flag=1;
+				break;
+		}
     }
-    if(flag) return EEXIST;
-    if(emptyIndex==-1) return ENOSPACE;	
+    if(flag) 
+			return EEXIST;
+    if(emptyIndex==-1) 
+			return ENOSPACE;	
 
     //remove from old path
-
-    strcpy(dirInfo.files[entryNo],"");//Darsh
-    /*int ij;
-    for(ij=0;ij<MAX_NAME_SIZE;ij++)
-    {
-    	dirInfo.files[entryNo][ij]='';
-    }*/
+    memset(dirInfo.files[entryNo],0,MAX_NAME_SIZE);
     dirInfo.fileblock[entryNo]=0;
     //write it back
     Block_Write(mountPoint->dev,block,(void*)&dirInfo);
-
+	struct myfs_File f;
+	Block_Read(mountPoint->dev, fileBlockNo, &f);
+	strcpy(f.fileName, newFname);
+	Block_Write(mountPoint->dev, fileBlockNo, &f);
     //enter into new path
-    strcpy(newDirInfo.files[emptyIndex],(fname));//Darsh
+	if(block == newBlock)
+			newDirInfo = dirInfo;
+    strcpy(newDirInfo.files[emptyIndex],(newFname));
     newDirInfo.fileblock[emptyIndex]=fileBlockNo;
     //write it back
     Block_Write(mountPoint->dev,newBlock,(void*)&newDirInfo);

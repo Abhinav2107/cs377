@@ -37,7 +37,7 @@ struct superBlock {
 
 struct myfs_File {
 	int type;
-	char fileName[16];
+	char fileName[MAX_NAME_SIZE];
 	int perms;
 	int fileSize;
 	int fmt[121];
