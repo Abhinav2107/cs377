@@ -938,6 +938,32 @@ static int Sys_Format(struct Interrupt_State *state) {
 }
 
 /*
+ * Change permissions of a file or directory.
+ * Params:
+ *   state->ebx - address of user string containing path of file
+ *   state->ecx - length of path
+ *   state->edx - permissions
+ *
+ * Returns: 0 if successful,
+ *   or an error code (< 0) if unsuccessful
+ */
+static int Sys_Chmod(struct Interrupt_State *state) {
+    char *path;
+    int rc = 0;
+
+    rc = get_path_from_registers(state->ebx, state->ecx, &path);
+    if (rc != 0) {
+        return rc;
+    }
+
+    Enable_Interrupts();        // duped from schulman
+    rc = Chmod(path, state->edx);
+    Disable_Interrupts();
+    Free(path);
+	return rc;
+}
+
+/*
  * Read a block from a device
  * Params:
  *   state->ebx - address of user string containing block device name
@@ -1189,6 +1215,7 @@ const Syscall g_syscallTable[] = {
     Sys_CreateDir,
     Sys_Sync,
     Sys_Format,
+	Sys_Chmod,
     Sys_ShutDown,
     Sys_ReadBlock,
     Sys_WriteBlock,

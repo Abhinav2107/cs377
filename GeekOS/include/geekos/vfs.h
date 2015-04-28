@@ -80,6 +80,7 @@ struct Mount_Point_Ops {
     int (*Disk_Properties) (struct Mount_Point * mountPoint,
                             unsigned int *block_size,
                             unsigned int *blocks_on_disk);
+	int (*Chmod) (struct Mount_Point * mountPoint, const char * path, int perms);
 };
 
 /* An opened file or directory. */
@@ -138,7 +139,7 @@ int Open(const char *path, int mode, struct File **pFile);
 int Close(struct File *file);
 int Stat(const char *path, struct VFS_File_Stat *stat);
 int Sync(void);
-
+int Chmod(const char * path, int perms);
 /* File operations. */
 struct File *Allocate_File(struct File_Ops *ops, int filePos, int endPos,
                            void *fsData, int mode,

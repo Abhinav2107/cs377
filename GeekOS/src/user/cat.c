@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
 
     inFd = Open(argv[1], O_READ);
     if (inFd < 0) {
-        Print("unable to open %s\n", argv[1]);
+        Print("unable to open file %s: %s\n", argv[1], Get_Error_String(inFd));
         Exit(-1);
     }
 
@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
     for (read = 0; read < stat.size; read += ret) {
         ret = Read(inFd, buffer, sizeof(buffer) - 1);
         if (ret < 0) {
-            Print("error reading file for copy %s\n", Get_Error_String(ret));
+            Print("error reading file %s\n", Get_Error_String(ret));
             Exit(-1);
         }
 

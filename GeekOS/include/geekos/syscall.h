@@ -80,6 +80,7 @@ enum {
     SYS_CREATEDIR,              /* Create directory system call  */
     SYS_SYNC,                   /* Sync filesystems system call  */
     SYS_FORMAT,
+	SYS_CHMOD,					/* Chmod system call */
     SYS_SHUTDOWN,               /*  misguided / unused */
     SYS_READBLOCK,              /* Read a block from disk */
     SYS_WRITEBLOCK,             /* Write a block to disk */

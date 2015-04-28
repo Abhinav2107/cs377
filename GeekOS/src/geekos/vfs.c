@@ -632,6 +632,33 @@ int Create_Directory(const char *path) {
 }
 
 /*
+ * Change permissions of a file or directory.
+ * Params:
+ *   path - full path of the file or directory
+ *   perms - permissions to be set
+ * Returns: 0 if successful, error code (< 0) if not
+ */
+int Chmod(const char *path, int perms) {
+    char prefix[MAX_PREFIX_LEN + 1];
+    const char *suffix;
+    struct Mount_Point *mountPoint;
+
+    /* Split path into prefix and suffix */
+    if (!Unpack_Path(path, prefix, &suffix))
+        return ENOTFOUND;
+
+    /* Get mount point for path */
+    mountPoint = Lookup_Mount_Point(prefix);
+    if (mountPoint == 0)
+        return ENOTFOUND;
+
+    if (mountPoint->ops->Chmod == 0)
+        return EUNSUPPORTED;
+    else
+        return mountPoint->ops->Chmod(mountPoint, suffix, perms);
+}
+
+/*
  * Delete a file or directory
  * Params:
  *   path - full path of file/directory to delete

@@ -707,6 +707,7 @@ struct Mount_Point_Ops s_pfatMountPointOps = {
     PFAT_SetSetUid,
     PFAT_SetAcl,
     0,                          /* Disk_Properties */
+	0,							/* Chmod */
 };
 
 /*

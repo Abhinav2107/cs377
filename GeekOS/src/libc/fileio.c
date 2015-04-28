@@ -153,6 +153,12 @@ DEF_SYSCALL(Munmap, SYS_MUNMAP, int, (const void *addr), const void *arg0 =
             addr;
             , SYSCALL_REGS_1)
 
+DEF_SYSCALL(Chmod, SYS_CHMOD, int, (const char *filename, int perms),
+            const char *arg0 = filename;
+            size_t arg1 = strlen(filename);
+            int arg2 = perms;
+            , SYSCALL_REGS_3)
+
 static bool Copy_String(char *dst, const char *src, size_t len) {
     if (strnlen(src, len) == len)
         return false;

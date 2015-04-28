@@ -195,6 +195,7 @@ static int GFS2_Disk_Properties(struct Mount_Point *mountPoint,
     0,                          /* setuid  */
     0,                          /* acl  */
     &GFS2_Disk_Properties,
+	0, 							/* Chmod */
 };
 
 static int GFS2_Format(struct Block_Device *blockDev __attribute__ ((unused))) {

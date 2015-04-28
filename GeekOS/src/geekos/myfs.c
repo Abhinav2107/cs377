@@ -577,12 +577,38 @@ static int myfs_Rename(struct Mount_Point * mountPoint, const char * oldpath, co
     newDirInfo.fileblock[emptyIndex]=fileBlockNo;
     //write it back
     Block_Write(mountPoint->dev,newBlock,(void*)&newDirInfo);
-
-
-
-
-
 	return 0;
+}
+
+int myfs_Chmod(struct Mount_Point * mountPoint, const char * path, int perms) {
+	struct myfs_directoryEntry dir;
+	int index;
+	int block;
+	int ret;
+	ret = myfs_Lookup(mountPoint, path, &dir, &index, &block);
+	if(ret < 0)
+			return ret;
+	if(perms < 0 || perms > 7)
+			return EINVALID;
+	path = &(path[index]);
+	if(*path == '\x00') {
+		dir.perms = perms;
+		Block_Write(mountPoint->dev, block, &dir);
+		return 0;
+	}
+	int i;
+	for(i = 0; i < 24; i++) {
+		if(*dir.files[i] == '\x00')
+				continue;
+		if(!strcmp(dir.files[i], path)) {
+			struct myfs_File temp;
+			Block_Read(mountPoint->dev, dir.fileblock[i], &temp);
+			temp.perms = perms;
+			Block_Write(mountPoint->dev, dir.fileblock[i], &temp);
+			return 0;
+		}
+	}
+	return ENOTFOUND;
 }
 
 struct Mount_Point_Ops myfs_Mount_Point_Ops = {
@@ -598,6 +624,7 @@ struct Mount_Point_Ops myfs_Mount_Point_Ops = {
     0, //SetSetUid
     0, //SetAcl
     0, //Disk_Properties
+	&myfs_Chmod,
 };
 
 static int myfs_Format(struct Block_Device * blockDev) {

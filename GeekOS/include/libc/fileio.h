@@ -42,7 +42,7 @@ int WriteBlock(const char *path, void *buf, unsigned int len,
                unsigned int blocknum);
 
 int Format(const char *device, const char *filesystem_type);
-
+int Chmod(const char *path, int perms);
 int PlaySoundFile(const char *filename);
 
 int Pipe(int *read_fd, int *write_fd);
